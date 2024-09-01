@@ -77,6 +77,13 @@
     </div>
 
     <script type="module">
+        // 고정 환율 데이터
+        const exchangeRates = {
+            USD: { EUR: 0.85, KRW: 1100 },
+            EUR: { USD: 1.18, KRW: 1300 },
+            KRW: { USD: 0.0009, EUR: 0.00077 }
+        };
+
         let moneyEmojiCount = 0;
         const sounds = ["kick", "hat", "snare", "hat"];
         let soundIndex = 0;
@@ -97,18 +104,6 @@
             updateConversion();
         });
 
-        async function fetchExchangeRate(fromCurrency, toCurrency) {
-            try {
-                const response = await fetch(https://api.exchangerate-api.com/v4/latest/${fromCurrency});
-                const data = await response.json();
-                return data.rates[toCurrency];
-            } catch (error) {
-                console.error('Error fetching exchange rate:', error);
-                alert('Error fetching exchange rate. Please try again later.');
-                return null;
-            }
-        }
-
         async function updateConversion() {
             const amount = document.getElementById('amount').value;
             const fromCurrency = document.getElementById('from-currency').value;
@@ -120,11 +115,12 @@
                 return;
             }
 
-            const rate = await fetchExchangeRate(fromCurrency, toCurrency);
+            // 고정된 환율 데이터 사용
+            const rate = exchangeRates[fromCurrency][toCurrency];
             if (rate !== null) {
                 const convertedAmount = (amount * rate).toFixed(2);
-                document.getElementById('result').textContent = ${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency};
-                document.getElementById('speech-bubble').textContent = 1 ${fromCurrency} = ${rate.toFixed(2)} ${toCurrency};
+                document.getElementById('result').textContent = `${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency}`;
+                document.getElementById('speech-bubble').textContent = `1 ${fromCurrency} = ${rate.toFixed(2)} ${toCurrency}`;
                 document.getElementById('speech-bubble').classList.remove('hidden');
                 createMoneyEmoji();
                 playSound();
@@ -135,8 +131,8 @@
             const emoji = document.createElement('div');
             emoji.textContent = '💸';
             emoji.classList.add('money-emoji');
-            emoji.style.left = ${Math.random() * 100}vw;
-            emoji.style.top = ${Math.random() * 100}vh;
+            emoji.style.left = `${Math.random() * 100}vw`;
+            emoji.style.top = `${Math.random() * 100}vh`;
             emoji.addEventListener('click', () => {
                 emoji.remove();
                 moneyEmojiCount--;
@@ -167,13 +163,10 @@
         async function playSound() {
             const sound = sounds[soundIndex];
             soundIndex = (soundIndex + 1) % sounds.length;
-            const response = await fetch(https://freesound.org/data/previews/512/${sound}/512_${sound}.mp3);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(gainNode);
-            source.start();
+            // 예시로 고정된 사운드를 사용하는 경우
+            // 실제로는 오디오 파일이 있어야 합니다.
+            // 여기서는 API 호출을 제거하고 오디오 부분을 단순화합니다.
+            console.log('Play sound:', sound);
         }
 
         document.getElementById('amount').addEventListener('input', updateConversion);
