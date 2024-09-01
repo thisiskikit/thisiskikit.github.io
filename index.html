@@ -23,7 +23,7 @@
             position: absolute;
             bottom: 100%;
             left: 50%;
-            margin-left: -10px;
+            transform: translateX(-50%);
             width: 0;
             height: 0;
             border-left: 10px solid transparent;
@@ -34,16 +34,27 @@
             position: absolute;
             font-size: 24px;
             cursor: pointer;
+            animation: float 4s ease-in-out infinite;
+        }
+        @keyframes float {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-200px);
+                opacity: 0;
+            }
         }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md relative">
-        <h1 class="text-2xl font-bold mb-4 text-center">💸💸💸💸💸</h1>
+        <h1 class="text-2xl font-bold mb-4 text-center">💸 Currency Converter 💸</h1>
         <form id="currency-form" class="space-y-4">
             <div>
                 <label for="amount" class="block text-sm font-medium text-gray-700">Amount</label>
-                <input type="number" id="amount" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter amount">
+                <input type="number" id="amount" value="100" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Enter amount">
             </div>
             <div>
                 <label for="from-currency" class="block text-sm font-medium text-gray-700">From</label>
@@ -51,80 +62,101 @@
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="KRW">KRW</option>
-                    <!-- Add more currencies as needed -->
+                    <!-- 필요한 경우 다른 통화 추가 -->
                 </select>
             </div>
             <div>
                 <label for="to-currency" class="block text-sm font-medium text-gray-700">To</label>
                 <select id="to-currency" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <option value="KRW">KRW</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
-                    <option value="KRW">KRW</option>
-                    <!-- Add more currencies as needed -->
+                    <!-- 필요한 경우 다른 통화 추가 -->
                 </select>
             </div>
         </form>
         <div id="result" class="mt-4 text-center text-lg font-medium text-gray-700"></div>
         <div id="cat-emoji" class="text-center mt-4">
             <span class="text-4xl">🐱</span>
-            <div id="speech-bubble" class="speech-bubble hidden">Can I KIKIT?</div>
+            <div id="speech-bubble" class="speech-bubble hidden">환율을 계산해보세요!</div>
         </div>
-        <button id="yes-button" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hidden">Yes You Can!</button>
+        <button id="yes-button" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hidden">모든 돈다발 제거하기</button>
         <div class="mt-4">
-            <label for="volume" class="block text-sm font-medium text-gray-700">Amount</label>
-            <input type="range" id="volume" min="1" max="100000" step="1" value="50000" class="w-full">
+            <label for="volume" class="block text-sm font-medium text-gray-700">Volume</label>
+            <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5" class="w-full">
         </div>
     </div>
 
-    <script type="module">
-        // 고정 환율 데이터
+    <script>
+        // 환율 데이터 로컬 저장
         const exchangeRates = {
-            USD: { EUR: 0.85, KRW: 1100 },
-            EUR: { USD: 1.18, KRW: 1300 },
-            KRW: { USD: 0.0009, EUR: 0.00077 }
+            USD: {
+                USD: 1,
+                EUR: 0.85,
+                KRW: 1330.5,
+            },
+            EUR: {
+                USD: 1.18,
+                EUR: 1,
+                KRW: 1570.2,
+            },
+            KRW: {
+                USD: 0.00075,
+                EUR: 0.00064,
+                KRW: 1,
+            },
+            // 필요한 경우 다른 통화 추가
+        };
+
+        // 사운드 데이터 Base64 인코딩
+        const sounds = {
+            kick: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=',
+            snare: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=',
+            hat: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=',
         };
 
         let moneyEmojiCount = 0;
-        const sounds = ["kick", "hat", "snare", "hat"];
+        const soundKeys = Object.keys(sounds);
         let soundIndex = 0;
+
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const volumeControl = document.getElementById('volume');
-        let gainNode = audioContext.createGain();
-        gainNode.gain.value = volumeControl.value / 100000;
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = document.getElementById('volume').value;
         gainNode.connect(audioContext.destination);
 
-        volumeControl.addEventListener('input', () => {
-            gainNode.gain.value = volumeControl.value / 100000;
-            document.getElementById('amount').value = volumeControl.value;
-            updateConversion();
-        });
+        const amountInput = document.getElementById('amount');
+        const fromCurrencySelect = document.getElementById('from-currency');
+        const toCurrencySelect = document.getElementById('to-currency');
+        const resultDiv = document.getElementById('result');
+        const speechBubble = document.getElementById('speech-bubble');
+        const yesButton = document.getElementById('yes-button');
+        const volumeControl = document.getElementById('volume');
 
-        document.getElementById('amount').addEventListener('input', () => {
-            volumeControl.value = document.getElementById('amount').value;
-            updateConversion();
-        });
+        function updateConversion() {
+            const amount = parseFloat(amountInput.value);
+            const fromCurrency = fromCurrencySelect.value;
+            const toCurrency = toCurrencySelect.value;
 
-        async function updateConversion() {
-            const amount = document.getElementById('amount').value;
-            const fromCurrency = document.getElementById('from-currency').value;
-            const toCurrency = document.getElementById('to-currency').value;
-
-            if (amount === '' || isNaN(amount)) {
-                document.getElementById('result').textContent = '';
-                document.getElementById('speech-bubble').classList.add('hidden');
+            if (isNaN(amount) || amount <= 0) {
+                resultDiv.textContent = '올바른 금액을 입력해주세요.';
+                speechBubble.classList.add('hidden');
                 return;
             }
 
-            // 고정된 환율 데이터 사용
             const rate = exchangeRates[fromCurrency][toCurrency];
-            if (rate !== null) {
-                const convertedAmount = (amount * rate).toFixed(2);
-                document.getElementById('result').textContent = `${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency}`;
-                document.getElementById('speech-bubble').textContent = `1 ${fromCurrency} = ${rate.toFixed(2)} ${toCurrency}`;
-                document.getElementById('speech-bubble').classList.remove('hidden');
-                createMoneyEmoji();
-                playSound();
+
+            if (!rate) {
+                resultDiv.textContent = '선택한 통화 쌍에 대한 환율 정보가 없습니다.';
+                speechBubble.classList.add('hidden');
+                return;
             }
+
+            const convertedAmount = (amount * rate).toFixed(2);
+            resultDiv.textContent = `${amount} ${fromCurrency} = ${convertedAmount} ${toCurrency}`;
+            speechBubble.textContent = `1 ${fromCurrency} = ${rate.toFixed(2)} ${toCurrency}`;
+            speechBubble.classList.remove('hidden');
+            createMoneyEmoji();
+            playSound();
         }
 
         function createMoneyEmoji() {
@@ -133,46 +165,61 @@
             emoji.classList.add('money-emoji');
             emoji.style.left = `${Math.random() * 100}vw`;
             emoji.style.top = `${Math.random() * 100}vh`;
-            emoji.addEventListener('click', () => {
+
+            document.body.appendChild(emoji);
+
+            setTimeout(() => {
                 emoji.remove();
                 moneyEmojiCount--;
                 checkMoneyEmojiCount();
-            });
-            document.body.appendChild(emoji);
+            }, 4000);
+
             moneyEmojiCount++;
             checkMoneyEmojiCount();
         }
 
         function checkMoneyEmojiCount() {
-            if (moneyEmojiCount > 5) {
-                document.getElementById('speech-bubble').textContent = 'Can I KIKIT?';
-                document.getElementById('yes-button').classList.remove('hidden');
+            if (moneyEmojiCount >= 5) {
+                speechBubble.textContent = '돈다발이 너무 많아요! 정리할까요?';
+                yesButton.classList.remove('hidden');
             } else {
-                document.getElementById('yes-button').classList.add('hidden');
+                yesButton.classList.add('hidden');
             }
         }
 
         function clearAllMoneyEmojis() {
             document.querySelectorAll('.money-emoji').forEach(emoji => emoji.remove());
             moneyEmojiCount = 0;
-            document.getElementById('speech-bubble').classList.add('hidden');
-            document.getElementById('yes-button').classList.add('hidden');
-            document.getElementById('result').textContent = '';
+            speechBubble.textContent = '돈다발을 모두 정리했습니다!';
+            yesButton.classList.add('hidden');
         }
 
-        async function playSound() {
-            const sound = sounds[soundIndex];
-            soundIndex = (soundIndex + 1) % sounds.length;
-            // 예시로 고정된 사운드를 사용하는 경우
-            // 실제로는 오디오 파일이 있어야 합니다.
-            // 여기서는 API 호출을 제거하고 오디오 부분을 단순화합니다.
-            console.log('Play sound:', sound);
+        function playSound() {
+            const soundKey = soundKeys[soundIndex];
+            soundIndex = (soundIndex + 1) % soundKeys.length;
+
+            fetch(sounds[soundKey])
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => {
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(gainNode);
+                    source.start();
+                })
+                .catch(error => console.error('사운드 재생 중 오류 발생:', error));
         }
 
-        document.getElementById('amount').addEventListener('input', updateConversion);
-        document.getElementById('from-currency').addEventListener('change', updateConversion);
-        document.getElementById('to-currency').addEventListener('change', updateConversion);
-        document.getElementById('yes-button').addEventListener('click', clearAllMoneyEmojis);
+        amountInput.addEventListener('input', updateConversion);
+        fromCurrencySelect.addEventListener('change', updateConversion);
+        toCurrencySelect.addEventListener('change', updateConversion);
+        yesButton.addEventListener('click', clearAllMoneyEmojis);
+        volumeControl.addEventListener('input', () => {
+            gainNode.gain.value = volumeControl.value;
+        });
+
+        // 초기 변환 결과 업데이트
+        updateConversion();
     </script>
 </body>
 </html>
