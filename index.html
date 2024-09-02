@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KIKIT !</title>
+    <title>KIKIT!</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,14 +16,18 @@
             margin: 0;
             position: relative;
         }
+
         .emoji {
             position: absolute;
             font-size: 2rem;
             cursor: pointer;
+            transition: transform 0.5s ease-in-out;
         }
-        .note {
-            display: none;
+
+        .text-center {
+            text-align: center;
         }
+
         #emojiButton {
             background-color: #3b82f6;
             color: white;
@@ -33,17 +38,51 @@
             border: none;
             cursor: pointer;
         }
+
+        #resetButton {
+            display: none;
+            background-color: #ef4444;
+            color: white;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 1.5rem;
+            border: none;
+            cursor: pointer;
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .explode {
+            animation: explode 0.5s forwards;
+        }
     </style>
 </head>
+
 <body>
     <div class="text-center">
         <button id="emojiButton">
             😀
         </button>
+        <button id="resetButton">Can I KIKIT?</button>
     </div>
 
     <script>
         const emojiButton = document.getElementById('emojiButton');
+        const resetButton = document.getElementById('resetButton');
         const emojis = ['😀', '😂', '🥰', '😎', '🤔', '😴', '😜', '🤩', '😇', '🤯'];
 
         function generateRandomEmoji() {
@@ -55,37 +94,113 @@
             newEmoji.style.top = `${Math.floor(Math.random() * window.innerHeight)}px`;
             document.body.appendChild(newEmoji);
 
-            newEmoji.addEventListener('mousedown', (event) => {
-                const shiftX = event.clientX - newEmoji.getBoundingClientRect().left;
-                const shiftY = event.clientY - newEmoji.getBoundingClientRect().top;
+            addDragListeners(newEmoji);
 
-                function moveAt(pageX, pageY) {
-                    newEmoji.style.left = pageX - shiftX + 'px';
-                    newEmoji.style.top = pageY - shiftY + 'px';
-                }
+            // 이모지를 localStorage에 저장
+            saveEmojis();
 
-                function onMouseMove(event) {
-                    moveAt(event.pageX, event.pageY);
-                }
-
-                document.addEventListener('mousemove', onMouseMove);
-
-                newEmoji.onmouseup = function() {
-                    document.removeEventListener('mousemove', onMouseMove);
-                    newEmoji.onmouseup = null;
-                };
-            });
-
-            newEmoji.ondragstart = function() {
-                return false;
-            };
+            // 20개 이상이면 리셋 버튼 보이기
+            if (document.querySelectorAll('.emoji').length > 20) {
+                resetButton.style.display = 'block';
+            }
 
             newEmoji.addEventListener('dblclick', () => {
-                newEmoji.remove();
+                removeEmoji(newEmoji);
             });
         }
 
+        function removeEmoji(emoji) {
+            emoji.classList.add('explode');
+            setTimeout(() => {
+                emoji.remove();
+                saveEmojis();
+            }, 500);
+        }
+
+        function addDragListeners(emoji) {
+            let shiftX, shiftY;
+
+            function moveAt(pageX, pageY) {
+                emoji.style.left = pageX - shiftX + 'px';
+                emoji.style.top = pageY - shiftY + 'px';
+            }
+
+            function onMouseMove(event) {
+                moveAt(event.pageX, event.pageY);
+            }
+
+            function onTouchMove(event) {
+                moveAt(event.touches[0].pageX, event.touches[0].pageY);
+            }
+
+            emoji.addEventListener('mousedown', (event) => {
+                shiftX = event.clientX - emoji.getBoundingClientRect().left;
+                shiftY = event.clientY - emoji.getBoundingClientRect().top;
+                document.addEventListener('mousemove', onMouseMove);
+            });
+
+            emoji.addEventListener('touchstart', (event) => {
+                shiftX = event.touches[0].clientX - emoji.getBoundingClientRect().left;
+                shiftY = event.touches[0].clientY - emoji.getBoundingClientRect().top;
+                document.addEventListener('touchmove', onTouchMove);
+            });
+
+            emoji.addEventListener('mouseup', () => {
+                document.removeEventListener('mousemove', onMouseMove);
+            });
+
+            emoji.addEventListener('touchend', () => {
+                document.removeEventListener('touchmove', onTouchMove);
+            });
+
+            emoji.ondragstart = function () {
+                return false;
+            };
+        }
+
+        function saveEmojis() {
+            const emojis = Array.from(document.querySelectorAll('.emoji')).map(emoji => {
+                return {
+                    text: emoji.textContent,
+                    left: emoji.style.left,
+                    top: emoji.style.top
+                };
+            });
+            localStorage.setItem('emojis', JSON.stringify(emojis));
+        }
+
+        function loadEmojis() {
+            const emojis = JSON.parse(localStorage.getItem('emojis') || '[]');
+            emojis.forEach(emojiData => {
+                const emoji = document.createElement('div');
+                emoji.textContent = emojiData.text;
+                emoji.classList.add('emoji');
+                emoji.style.left = emojiData.left;
+                emoji.style.top = emojiData.top;
+                document.body.appendChild(emoji);
+                addDragListeners(emoji);
+
+                emoji.addEventListener('dblclick', () => {
+                    removeEmoji(emoji);
+                });
+            });
+
+            if (emojis.length > 20) {
+                resetButton.style.display = 'block';
+            }
+        }
+
+        resetButton.addEventListener('click', () => {
+            document.querySelectorAll('.emoji').forEach(emoji => {
+                removeEmoji(emoji);
+            });
+            resetButton.style.display = 'none';
+        });
+
         emojiButton.addEventListener('click', generateRandomEmoji);
+
+        loadEmojis();
     </script>
 </body>
+
 </html>
